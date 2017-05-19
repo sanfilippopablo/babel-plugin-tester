@@ -170,6 +170,7 @@ function testFixtures({
         const babelRcPath = path.join(fixtureDir, '.babelrc')
 
         const {babelOptions} = merge(
+          {},
           fullDefaultConfig,
           {
             babelOptions: {
@@ -225,7 +226,10 @@ function toTestConfig({testConfig, index, plugin, pluginName, filename}) {
     output = getCode(filename, testConfig.outputFixture),
   } = testConfig
   return merge({}, testConfig, {
-    babelOptions: {plugins: [plugin]},
+    babelOptions: {
+      plugins: [plugin],
+      filename: getTestFilepath(testConfig, filename, fixture),
+    },
     title: fullTitle,
     code: stripIndent(code).trim(),
     output: stripIndent(output).trim(),
@@ -240,10 +244,28 @@ function getCode(filename, fixture) {
 }
 
 function getPath(filename, basename) {
+  if (!basename) {
+    return undefined
+  }
   if (path.isAbsolute(basename)) {
     return basename
   }
   return path.join(path.dirname(filename), basename)
+}
+
+function getTestFilepath(testConfig, filename, fixture) {
+  const {filename: codeFilename = getPath(filename, fixture)} = testConfig
+  if (filename && !codeFilename) {
+    if (codeFilename === null) {
+      return undefined
+    } else {
+      return path.join(
+        path.dirname(filename),
+        '__babel-plugin-tester-filename__.js',
+      )
+    }
+  }
+  return codeFilename
 }
 
 function requiredParam(name) {

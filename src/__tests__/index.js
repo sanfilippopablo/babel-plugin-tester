@@ -1,11 +1,12 @@
 import fs from 'fs'
 import path from 'path'
 import assert from 'assert'
+import * as babel from 'babel-core'
 // eslint-disable-next-line import/default
 import pluginTester from '../'
 import identifierReversePlugin from './__helpers__/identifier-reverse-plugin'
 
-let errorSpy, describeSpy, itSpy, itOnlySpy, itSkipSpy, equalSpy
+let errorSpy, describeSpy, itSpy, itOnlySpy, itSkipSpy, equalSpy, transformSpy
 
 const noop = () => {}
 const titleTesterMock = (title, testFn) => testFn()
@@ -22,6 +23,7 @@ beforeEach(() => {
   global.it.skip = jest.fn(titleTesterMock)
   itOnlySpy = global.it.only
   itSkipSpy = global.it.skip
+  transformSpy = jest.spyOn(babel, 'transform')
 })
 
 afterEach(() => {
@@ -29,6 +31,8 @@ afterEach(() => {
   errorSpy.mockRestore()
   describeSpy.mockRestore()
   itSpy.mockRestore()
+  itSkipSpy.mockRestore()
+  transformSpy.mockRestore()
 })
 
 test('plugin is required', () => {
@@ -271,6 +275,78 @@ test('throws invariant if snapshot and output are both provided', () => {
   expect(() =>
     pluginTester(getOptions({tests})),
   ).toThrowErrorMatchingSnapshot()
+})
+
+test('uses the fixture filename in babelOptions', () => {
+  const fixture = getFixturePath('fixture1.js')
+  const tests = [
+    {
+      fixture,
+      outputFixture: getFixturePath('fixture1.js'),
+    },
+  ]
+  pluginTester(getOptions({tests}))
+  expect(transformSpy).toHaveBeenCalledTimes(1)
+  expect(transformSpy).toHaveBeenCalledWith(
+    expect.any(String),
+    expect.objectContaining({
+      filename: fixture,
+    }),
+  )
+})
+
+test('allows for a test filename override in babelOptions', () => {
+  const filename = getFixturePath('outure1.js')
+  const tests = [
+    {
+      filename,
+      fixture: getFixturePath('fixture1.js'),
+      outputFixture: getFixturePath('fixture1.js'),
+    },
+  ]
+  pluginTester(getOptions({tests}))
+  expect(transformSpy).toHaveBeenCalledTimes(1)
+  expect(transformSpy).toHaveBeenCalledWith(
+    expect.any(String),
+    expect.objectContaining({
+      filename,
+    }),
+  )
+})
+
+test('can provide a test filename for code strings', () => {
+  const filename = getFixturePath('outure1.js')
+  const tests = [{filename, code: simpleTest}]
+  pluginTester(getOptions({tests}))
+  expect(transformSpy).toHaveBeenCalledTimes(1)
+  expect(transformSpy).toHaveBeenCalledWith(
+    expect.any(String),
+    expect.objectContaining({
+      filename,
+    }),
+  )
+})
+
+test('root-level filename will be used for each test by default', () => {
+  const tests = [simpleTest]
+  pluginTester(getOptions({tests, filename: __filename}))
+  expect(transformSpy).toHaveBeenCalledTimes(1)
+  expect(transformSpy).toHaveBeenCalledWith(
+    expect.any(String),
+    expect.objectContaining({
+      filename: path.join(__dirname, '__babel-plugin-tester-filename__.js'),
+    }),
+  )
+})
+
+test('tests can prevent root-level filename use with filename: null', () => {
+  const tests = [{code: simpleTest, filename: null}]
+  pluginTester(getOptions({tests, filename: __filename}))
+  expect(transformSpy).toHaveBeenCalledTimes(1)
+  const [[, firstCallSecondArg]] = transformSpy.mock.calls
+  expect(firstCallSecondArg).not.toMatchObject({
+    filename: expect.any(String),
+  })
 })
 
 test('snapshot option can be derived from the root config', () => {
