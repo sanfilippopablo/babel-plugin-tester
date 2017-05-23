@@ -13,8 +13,8 @@ module.exports = pluginTester
 
 const fullDefaultConfig = {
   babelOptions: {
-    parserOpts: {parser: recast.parse},
-    generatorOpts: {generator: recast.print, lineTerminator: '\n'},
+    parserOpts: {},
+    generatorOpts: {},
     babelrc: false,
   },
 }
