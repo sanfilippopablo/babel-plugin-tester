@@ -165,7 +165,7 @@ function pluginTester({
         } else if (error) {
           assertError(result, error)
         } else if (output) {
-          assert.equal(result, output, 'Output is incorrect.')
+          expect(result).toEqual(output)
         } else {
           assert.equal(
             result,
